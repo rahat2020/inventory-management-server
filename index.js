@@ -7,8 +7,8 @@ const dotenv = require("dotenv");
 dotenv.config();
 const port = process.env.PORT || 5000;
 const errorHandler = require("./middlware/errorHandler");
-const postsRoute = require("./routes/posts");
 const productsRoute = require("./routes/products");
+const categoryRoute = require("./routes/category");
 
 const mongoUrl = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.vatpd.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority`;
 console.log(mongoUrl);
@@ -27,8 +27,8 @@ mongoose
 // API
 app.use(cors());
 app.use(express.json());
-app.use("/posts/v1", postsRoute);
 app.use("/api/v1", productsRoute);
+app.use("/api/v1", categoryRoute);
 app.use(errorHandler);
 
 app.get("/", (req, res) => {

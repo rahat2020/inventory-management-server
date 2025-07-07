@@ -75,12 +75,41 @@ const deleteProduct = async (req, res) => {
 // GET ALL PRODUCT
 const getAllProducts = async (req, res, next) => {
   try {
-    const posts = await Products.find({});
-    res.status(200).json(posts);
-  } catch (err) {
-    if (err) {
-      throw new AppError(err, err.status);
+    const { search, status, page = 1, limit = 10 } = req.query;
+
+    const filter = {};
+
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { sku: { $regex: search, $options: "i" } },
+      ];
     }
+
+    if (status) {
+      filter.status = status;
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const total = await Products.countDocuments(filter);
+
+    const products = await Products.find(filter)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 }); // newest first
+
+    res.status(200).json({
+      success: true,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(total / limit),
+      data: products,
+    });
+  } catch (err) {
+    next(
+      new AppError(err.message || "Failed to get products", err.status || 500)
+    );
   }
 };
 
