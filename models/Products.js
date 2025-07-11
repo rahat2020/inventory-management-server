@@ -43,7 +43,7 @@ const productSchema = new mongoose.Schema(
       default: "pcs",
     },
     image: {
-      type: [String], // URL or local path
+      type: [String],
       default: [
         "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTyFmBCFfrKGnUCXabdJm-oQmQ-fwUU23HOrlYVKqbA1njKWnjVvMAcFhcPYEzXm_ehfNg&usqp=CAU",
       ],

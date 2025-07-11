@@ -1,65 +1,83 @@
-const mongoose = require('mongoose')
+const mongoose = require("mongoose");
 
-const MessageSchema = new mongoose.Schema({
-    username: { type: String, },
-    email: { type: String, },
-    photo: { type: String, },
-    userId: { type: String, },
-    toUser:{type: String,},
-    subject: { type: String, },
-    desc: { type: String, },
-    uniCode: { type: String}
-})
+// Reusable message schema
+const MessageSchema = new mongoose.Schema(
+  {
+    username: { type: String, required: true },
+    email: { type: String, required: true },
+    photo: { type: String },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    toUser: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    subject: { type: String },
+    desc: { type: String },
+    uniCode: { type: String },
+  },
+  { timestamps: true }
+);
 
-const SentMsgs = new mongoose.Schema({
-    username: { type: String, },
-    email: { type: String, },
-    photo: { type: String, },
-    userId: { type: String, },
-    toUser:{type: String,},
-    subject: { type: String, },
-    desc: { type: String, },
-    uniCode: { type: String}
-})
-
-const UserSchema = new mongoose.Schema({
-
+const UserSchema = new mongoose.Schema(
+  {
     username: {
-        type: String,
-        require: true,
-        unique: true
+      type: String,
+      required: [true, "Name is required"],
+      trim: true,
     },
     email: {
-        type: String,
-        unique: true
+      type: String,
+      unique: true,
+      required: [true, "Email is required"],
+      lowercase: true,
+      trim: true,
     },
     password: {
-        type: String,
-        require: true,
+      type: String,
+      required: [true, "Password is required"],
     },
     photo: {
-        type: String,
-        default: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnMRBVny69Hii_1IH-jpKOya1QhHlCMVxc-UV-gPM&s'
+      type: String,
+      default:
+        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnMRBVny69Hii_1IH-jpKOya1QhHlCMVxc-UV-gPM&s",
     },
     isAdmin: {
-        type: Boolean,
-        default: false,
+      type: Boolean,
+      default: false,
     },
     terms: {
-        type: String,
+      type: Boolean,
+      default: false,
+    },
+    date_of_birth: {
+      type: Date,
+    },
+    address: {
+      type: String,
+      trim: true,
     },
     messages: [MessageSchema],
-    SentMessages: [SentMsgs],
+    sentMessages: [MessageSchema],
     activeUser: {
-        type: String,
-        default: 'no',
+      type: Boolean,
+      default: false,
     },
     role: {
-        type: String,
-        default: 'user',
-    }
-}, {
-    timestamps: true
-})
+      type: String,
+      enum: ["user", "admin"],
+      default: "user",
+    },
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
+  },
+  {
+    timestamps: true,
+  }
+);
 
 module.exports = mongoose.model("User", UserSchema);

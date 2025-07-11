@@ -35,6 +35,8 @@ const addCategory = async (req, res, next) => {
     );
   }
 };
+
+// get all categories
 const getAllCategories = async (req, res, next) => {
   try {
     const { search, status, page = 1, limit = 10 } = req.query;
@@ -69,32 +71,72 @@ const getAllCategories = async (req, res, next) => {
     });
   } catch (err) {
     next(
-      new AppError(err.message || "Failed to get products", err.status || 500)
+      new AppError(err.message || "Failed to get category", err.status || 500)
     );
   }
 };
 
+// get filter categories
+const getFilterCategories = async (req, res, next) => {
+  try {
+    const categories = await Category.find({}, "title _id"); // only fetch title and _id
+    const formatted = categories.map((cat) => ({
+      label: cat.title,
+      value: cat._id,
+    }));
+
+    res.status(200).json(formatted);
+  } catch (err) {
+    next(
+      new AppError(err.message || "Failed to get categories", err.status || 500)
+    );
+  }
+};
+
+// get category by id
 const categoryById = async (req, res, next) => {
   try {
+    const isExistCategory = await Category.findById(params);
+    if (!isExistCategory) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found",
+      });
+    }
     const articles = await Category.findById(req.params.id);
     res.status(200).json(articles);
   } catch (err) {
-    console.log(err);
-    next(err);
+    next(
+      new AppError(err.message || "Failed to get category", err.status || 500)
+    );
   }
 };
+
+// update category
 const updateCategory = async (req, res, next) => {
   const params = req.params.id;
   try {
+    const isExistCategory = await Category.findById(params);
+    if (!isExistCategory) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found",
+      });
+    }
     const articles = await Category.findByIdAndUpdate(
       params,
       { $set: req.body },
       { new: true }
     );
-    articles && res.status(200).json("category updated");
+    articles &&
+      res.status(200).json({
+        success: true,
+        message: "Category updated!",
+      });
   } catch (err) {
-    console.log(err);
-    next(err);
+    next(
+      new AppError(err.message || "Failed to get category", err.status || 500)
+    );
   }
 };
 // FILTER BY CATEGORY AND GET CATEGORY POSTS
@@ -112,7 +154,9 @@ const filterByCategory = async (req, res, next) => {
     res.json(posts);
     console.log(posts);
   } catch (err) {
-    next(err);
+    next(
+      new AppError(err.message || "Failed to get category", err.status || 500)
+    );
   }
 };
 
@@ -131,17 +175,33 @@ const filterByCategoryVideos = async (req, res, next) => {
     res.json(posts);
     console.log(posts);
   } catch (err) {
-    next(err);
+    next(
+      new AppError(err.message || "Failed to get category", err.status || 500)
+    );
   }
+  2;
 };
 
 const deleteCategory = async (req, res, next) => {
+  const categoryId = req.params.id;
   try {
-    await Category.findByIdAndDelete(req.params.id);
-    res.status(200).json("Category is deleted");
+    const isExistCategory = await Category.findById(categoryId);
+    if (!isExistCategory) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found!",
+      });
+    }
+    await Category.findByIdAndDelete(categoryId);
+    res.status(200).json({
+      success: true,
+      message: "Category is deleted",
+    });
   } catch (err) {
     console.log(err);
-    next(err);
+    next(
+      new AppError(err.message || "Failed to get category", err.status || 500)
+    );
   }
 };
 
@@ -153,4 +213,5 @@ module.exports = {
   updateCategory,
   filterByCategory,
   filterByCategoryVideos,
+  getFilterCategories,
 };

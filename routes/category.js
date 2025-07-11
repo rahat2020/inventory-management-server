@@ -7,11 +7,13 @@ const {
   updateCategory,
   filterByCategory,
   filterByCategoryVideos,
+  getFilterCategories,
 } = require("../controllers/category");
 // ADD CATEGORY
 router.post("/add-category", addCategory);
 // GET ALL CATEGORY
 router.get("/all-categories", getAllCategories);
+router.get("/filter-categories", getFilterCategories);
 // GET CATEGORY BY ID
 router.get("/categories/:id", categoryById);
 // GET POSTS BY CATEGORY

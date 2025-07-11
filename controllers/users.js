@@ -3,12 +3,18 @@ const Videos = require("../models/Videos");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const Products = require("../models/Products");
+const AppError = require("../utils/AppError");
 
 // CREATE NEW USER OR USER REGISTRATIONS
 const register = async (req, res, next) => {
-  const salt = bcrypt.genSaltSync(10);
-  const hash = bcrypt.hashSync(req.body.password, salt);
+  const salt = await bcrypt.genSalt(10);
+  const hash = await bcrypt.hash(req.body.password, salt);
+
   try {
+    if (!req.body.username || !req.body.email || !req.body.password) {
+      return next(new AppError("All fields are required", 400));
+    }
+
     const user = await new User({
       username: req.body.username,
       email: req.body.email,
@@ -16,62 +22,84 @@ const register = async (req, res, next) => {
       role: req.body.role,
       isAdmin: req.body.isAdmin,
     });
+
     const saved = await user.save();
-    saved && res.status(200).json("registration successfull");
+    saved &&
+      res.status(200).json({
+        success: true,
+        message: "Registration is successfull!",
+      });
   } catch (err) {
     if (err.code === 11000 && err.keyPattern && err.keyPattern.email) {
       // Duplicate key error for the 'email' field
-      res.status(400).json("Email address already in use");
+      res.status(400).json({
+        message: "Email address already in use!",
+      });
     } else {
-      // Handle other errors
-      console.error(error);
-      res.status(500).json("Internal Server Error");
+      next(
+        new AppError(
+          err.message || "Failed to registration!",
+          err.status || 500
+        )
+      );
     }
-    // next(err);
-    // console.log(err)
   }
 };
 
 // USER LOGIN AUTHENTICATIONS
 const login = async (req, res, next) => {
   try {
-    const user = await User.findOne({ username: req.body.username });
+    const { identifier, password } = req.body;
+
+    // Check identifier has email or username and password are provided
+    if (!identifier || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Username/email and password are required",
+      });
+    }
+
+    // Find user by username or email
+    const user = await User.findOne({
+      $or: [{ username: identifier }, { email: identifier }],
+    });
+
     if (!user) {
-      return res.status(404).json("Wrong credentials");
+      return res.status(404).json({
+        success: false,
+        message: "User not found or wrong credentials!",
+      });
     }
 
-    const isValidated = await bcrypt.compareSync(
-      req.body.password,
-      user.password
-    );
+    // Validate password
+    const isValidated = await bcrypt.compare(password, user.password);
     if (!isValidated) {
-      return res.status(404).json("Wrong credentials");
+      return res.status(401).json({
+        success: false,
+        message: "Wrong password!",
+      });
     }
 
-    // Define the activeUser value (true or 'yes').
-    const activeUser = "yes";
+    // Set user as active
+    user.activeUser = "yes";
+    await user.save();
 
-    // Update the `activeUser` field in the user document.
-    const active = await User.findByIdAndUpdate(
-      user.id,
-      { $set: { activeUser } },
-      { new: true }
-    );
-
-    const { password, isAdmin, ...others } = user._doc;
-
-    const access_token = await jwt.sign(
-      { id: user.id, isAdmin: user.isAdmin },
+    const access_token = jwt.sign(
+      { id: user._id, isAdmin: user.isAdmin },
       process.env.JWT,
       { expiresIn: "1h" }
     );
 
-    res
-      .status(200)
-      .json({ message: "Login successful", ...others, access_token });
+    const { password: _, isAdmin, ...userData } = user._doc;
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      user: userData,
+      access_token,
+    });
   } catch (err) {
-    next(err);
-    console.log(err);
+    next(new AppError(err.message || "Failed to login!", err.status || 500));
   }
 };
 
@@ -79,36 +107,28 @@ const login = async (req, res, next) => {
 const getUserData = async (req, res, next) => {
   const email = req.query.email;
   try {
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required!",
+      });
+    }
+
+    const isValidUser = await User.find({ email: email });
+    if (!isValidUser) {
+      return res.status(400).json({
+        success: false,
+        message: "User not found!",
+      });
+    }
+
     const getPostData = await Products.find({ "user.email": email });
-    const getVideoData = await Videos.find({ "user.email": email });
-    res.status(200).json({ getPostData, getVideoData });
+    res.status(200).json({ getPostData });
     // console.log(getData)
   } catch (err) {
-    next(err);
-  }
-};
-
-// COUNT POSTS AND VIDEOS LENGTH
-const postsAndVideoslenght = async (req, res, next) => {
-  const email = req.query.email;
-  try {
-    const getPostData = await Products.find({ "user.email": email });
-    const getVideoData = await Videos.find({ "user.email": email });
-    const postCount = getPostData.length;
-    const videoCount = getVideoData.length;
-    const totalPostAndVideoCountLength =
-      getPostData.length + getVideoData.length;
-    const combinedData = {
-      postCount,
-      videoCount,
-      totalPostAndVideoCountLength,
-      getPostData,
-      getVideoData,
-    };
-
-    res.status(200).json(combinedData);
-  } catch (error) {
-    next(error);
+    next(
+      new AppError(err.message || "Failed to registration!", err.status || 500)
+    );
   }
 };
 
@@ -126,26 +146,78 @@ const updateUser = async (req, res, next) => {
         { $set: req.body },
         { new: true }
       );
-      res.status(200).json("profile updated");
+      update &&
+        res.status(200).json({
+          success: true,
+          message: "Profile updated",
+        });
       // console.log(update)
     } catch (err) {
-      next(err);
-      console.log(err);
+      next(new AppError(err.message || "Failed to update!", err.status || 500));
     }
   } else {
-    res.status(401).json("You can update only your account!");
+    res.status(401).json({
+      success: false,
+      message: "You can update only your account!",
+    });
   }
 };
 
-// GET ALL USERS
-const allUsers = async (req, res, next) => {
+// FORGET PASS
+const forgotPassword = async (req, res, next) => {
   try {
-    const user = await User.find({});
-    res.status(200).json(user);
-    // console.log(user)
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return next(new AppError("No account with that email", 404));
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // 15 mins
+    await user.save();
+
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
+
+    const emailHtml = `
+      <h2>Password Reset Request</h2>
+      <p>Hello ${user.username},</p>
+      <p>You requested a password reset. Click the button below to reset your password:</p>
+      <a href="${resetUrl}" style="padding:10px 20px;background:#3498db;color:#fff;text-decoration:none;border-radius:5px">Reset Password</a>
+      <p>If you didn't request this, you can ignore this email.</p>
+    `;
+
+    await sendEmail(user.email, "Password Reset Request", emailHtml);
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset email sent!",
+    });
   } catch (err) {
     next(err);
-    console.log(err);
+  }
+};
+
+// GET ALL USERS (ADMIN ONLY)
+const allUsers = async (res, next) => {
+  try {
+    // newest users first
+    const users = await User.find({}, "-password -__v").sort({ createdAt: -1 });
+    res.status(200).json({
+      success: true,
+      count: users.length,
+      users,
+    });
+  } catch (err) {
+    next(
+      new AppError(err.message || "Failed to get all users!", err.status || 500)
+    );
   }
 };
 
@@ -156,187 +228,58 @@ const userByEmail = async (req, res, next) => {
     // Find the user by email
     const user = await User.findOne({ email: email });
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
-    // Return the user data
-    res.status(200).json(user);
+
+    res.status(200).json({
+      success: true,
+      user,
+    });
   } catch (error) {
-    next(error);
-    res.status(500).json({ message: "Internal Server Error" });
+    next(new AppError(err.message || "Failed to update!", err.status || 500));
+    res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
+
 // GET USER BY ID
 const getUsersById = async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id);
-    res.status(200).json(user);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found!",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      user,
+    });
   } catch (err) {
-    next(err);
+    next(new AppError(err.message || "Failed to update!", err.status || 500));
   }
 };
+
 // DELETE USERS
 const deleteUsers = async (req, res, next) => {
   try {
-    await User.findByIdAndDelete(req.params.id);
-    res.status(200).json("user has been deleted");
+    const isUserExist = await User.findById(req.params.id);
+    if (!isUserExist) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found!",
+      });
+    }
+    const user = await User.findByIdAndDelete(req.params.id);
+    user &&
+      res.status(200).json({
+        success: true,
+        message: "User deleted!",
+      });
   } catch (err) {
-    next(err);
-  }
-};
-// SEND MESSAGES TO ANY PARTICULAR USER
-const sendMessage = async (req, res, next) => {
-  const id = req.params.id;
-  const myId = req.params.myId;
-  try {
-    const { username, email, desc, photo, toUser, userId, subject, uniCode } =
-      req.body;
-    // to ( whoom I'm sending the message)
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(400).json({ error: "user not found" });
-    }
-
-    // from ( I'm sending the message)
-    const sentMsgs = await User.findById(myId);
-    if (!sentMsgs) {
-      return res.status(400).json({ error: "I am not logged in" });
-    }
-
-    if (!username || !userId || !uniCode || !subject || !desc) {
-      return res.status(400).json({ error: "All fields are required." });
-    }
-
-    const newMessage = {
-      username,
-      email,
-      desc,
-      photo,
-      toUser,
-      userId,
-      subject,
-      uniCode,
-    };
-    user.messages.push(newMessage);
-    await user.save();
-
-    const myMessage = {
-      username,
-      email,
-      desc,
-      photo,
-      toUser,
-      userId,
-      subject,
-      uniCode,
-    };
-    sentMsgs.SentMessages.push(myMessage);
-    await sentMsgs.save();
-
-    res.status(201).json({ message: "message sent" });
-  } catch (err) {
-    next(err);
-  }
-};
-
-// GET SINGLE RECIEVED MESSAGES FROM ANY USER
-const getSingleMessage = async (req, res, next) => {
-  const userId = req.params.userId;
-  const messageId = req.params.id;
-  try {
-    const user = await User.findById(userId);
-    if (!user) {
-      res.status(400).json("user is not found");
-    }
-    const getSingleMessage = user.messages.find((msg) => msg.id === messageId);
-    res.status(200).json(getSingleMessage);
-  } catch (err) {
-    next(err);
-  }
-};
-// GET SINGLE SENT MESSAGES
-const getSingleSentMessage = async (req, res, next) => {
-  const userId = req.params.userId;
-  const messageId = req.params.id;
-  try {
-    const user = await User.findById(userId);
-    if (!user) {
-      res.status(400).json("user is not found");
-    }
-    const getSingleMessage = user.SentMessages.find(
-      (msg) => msg.id === messageId
-    );
-    res.status(200).json(getSingleMessage);
-  } catch (err) {
-    next(err);
-  }
-};
-
-// DELETE RECEIVED MESSAGES
-// const deleteRcvMessages = async(req, res, next) => {
-//     const userId = req.params.userId
-//     const messageId = req.params.id;
-//     try{
-//         const user = await User.findById(userId)
-//         if (!user) {
-//             res.status(400).json('user is not found')
-//         }
-//         let getSingleMessage = user.messages.findByIdAndDelete((msg) => msg.id === messageId)
-//         getSingleMessage && res.status(200).json({message:'message deleted'})
-//     }
-//     catch(err){
-//         next(err)
-//     }
-// }
-const deleteRcvMessages = async (req, res, next) => {
-  const userId = req.params.userId;
-  const messageId = req.params.id;
-
-  try {
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(400).json("User is not found");
-    }
-
-    const messageIndex = user.messages.findIndex((msg) => msg.id === messageId);
-
-    if (messageIndex !== -1) {
-      user.messages.splice(messageIndex, 1);
-      await user.save();
-      return res.status(200).json({ message: "Message deleted" });
-    } else {
-      return res.status(404).json({ message: "Message not found" });
-    }
-  } catch (err) {
-    next(err);
-  }
-};
-
-// DELETE SENT MESSAGES
-const deleteSentMessages = async (req, res, next) => {
-  const userId = req.params.userId;
-  const messageId = req.params.id;
-
-  try {
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(400).json("User is not found");
-    }
-
-    const messageIndex = user.SentMessages.findIndex(
-      (msg) => msg.id === messageId
-    );
-
-    if (messageIndex !== -1) {
-      user.SentMessages.splice(messageIndex, 1);
-      await user.save();
-      return res.status(200).json({ message: "Message deleted" });
-    } else {
-      return res.status(404).json({ message: "Message not found" });
-    }
-  } catch (err) {
-    next(err);
+    next(new AppError(err.message || "Failed to delete!", err.status || 500));
   }
 };
 
@@ -349,10 +292,5 @@ module.exports = {
   deleteUsers,
   getUserData,
   userByEmail,
-  postsAndVideoslenght,
-  sendMessage,
-  getSingleMessage,
-  deleteRcvMessages,
-  deleteSentMessages,
-  getSingleSentMessage,
+  forgotPassword,
 };

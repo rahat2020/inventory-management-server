@@ -2,7 +2,7 @@ const Products = require("../models/Products");
 const AppError = require("../utils/AppError");
 
 // ADDING POSTS
-const createProducts = async (req, res) => {
+const createProducts = async (req, res, next) => {
   try {
     const posts = await Products(req.body);
     const savedPosts = await posts.save();
@@ -11,14 +11,14 @@ const createProducts = async (req, res) => {
         .status(200)
         .json({ success: true, message: "Product created successfully" });
   } catch (err) {
-    if (err) {
-      throw new AppError(err, err.status);
-    }
+    next(
+      new AppError(err.message || "Failed to get products", err.status || 500)
+    );
   }
 };
 
 // UPDATE PRODUCT
-const updateProduct = async (req, res) => {
+const updateProduct = async (req, res, next) => {
   try {
     const existingProduct = await Products.findById(req.params.id);
 
@@ -45,14 +45,14 @@ const updateProduct = async (req, res) => {
         updatedProduct,
       });
   } catch (err) {
-    if (err) {
-      throw new AppError(err, err.status);
-    }
+    next(
+      new AppError(err.message || "Failed to get products", err.status || 500)
+    );
   }
 };
 
 // DELETE PRODUCT
-const deleteProduct = async (req, res) => {
+const deleteProduct = async (req, res, next) => {
   try {
     const existingProduct = await Products.findById(req.params.id);
 
@@ -66,9 +66,9 @@ const deleteProduct = async (req, res) => {
         .status(200)
         .json({ success: true, message: "Product deleted successfully" });
   } catch (err) {
-    if (err) {
-      throw new AppError(err, err.status);
-    }
+    next(
+      new AppError(err.message || "Failed to get products", err.status || 500)
+    );
   }
 };
 
@@ -123,9 +123,9 @@ const getProductByID = async (req, res, next) => {
     }
     res.status(200).json(post);
   } catch (err) {
-    if (err) {
-      throw new AppError(err, err.status);
-    }
+    next(
+      new AppError(err.message || "Failed to get products", err.status || 500)
+    );
   }
 };
 

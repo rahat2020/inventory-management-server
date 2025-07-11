@@ -7,6 +7,7 @@ const dotenv = require("dotenv");
 dotenv.config();
 const port = process.env.PORT || 5000;
 const errorHandler = require("./middlware/errorHandler");
+const authRoute = require("./routes/users");
 const productsRoute = require("./routes/products");
 const categoryRoute = require("./routes/category");
 
@@ -27,6 +28,7 @@ mongoose
 // API
 app.use(cors());
 app.use(express.json());
+app.use("/api/v1", authRoute);
 app.use("/api/v1", productsRoute);
 app.use("/api/v1", categoryRoute);
 app.use(errorHandler);
