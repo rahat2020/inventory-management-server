@@ -10,6 +10,7 @@ const errorHandler = require("./middlware/errorHandler");
 const authRoute = require("./routes/users");
 const productsRoute = require("./routes/products");
 const categoryRoute = require("./routes/category");
+const chatRoute = require("./routes/chat");
 
 const mongoUrl = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.vatpd.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority`;
 console.log(mongoUrl);
@@ -31,6 +32,7 @@ app.use(express.json());
 app.use("/api/v1", authRoute);
 app.use("/api/v1", productsRoute);
 app.use("/api/v1", categoryRoute);
+app.use("/api", chatRoute);
 app.use(errorHandler);
 
 app.get("/", (req, res) => {
