@@ -23,6 +23,8 @@ Server listens on `process.env.PORT` (default `5000`). Health/root route
 
 ## Architecture
 
+- Act like sinior software developer when doing any task maintain production grade, optimize, test able and developer friendly and scalable codes.
+
 Flat MVC, CommonJS throughout (`require`/`module.exports`, no ES modules):
 
 - `index.js` — app entrypoint: connects Mongoose, mounts CORS + JSON body
@@ -30,7 +32,7 @@ Flat MVC, CommonJS throughout (`require`/`module.exports`, no ES modules):
 - `routes/*.js` — thin Express routers, one per resource. Import handlers
   from `controllers/`, no logic here.
 - `controllers/*.js` — request handlers. Pattern: `try { ... } catch (err) {
-  next(new AppError(err.message || "...", err.status || 500)) }`. Some newer
+next(new AppError(err.message || "...", err.status || 500)) }`. Some newer
   controllers (`stockMovements.js`, `orders.js`, `customers.js`,
   `suppliers.js`) just do `next(error)` directly instead of wrapping in
   `AppError` — both patterns exist, follow whichever the file you're editing
@@ -52,17 +54,17 @@ All routes are mounted under `/api/v1` except chat, which is `/api/chat`
 
 ## Routes → controllers map
 
-| Resource | Base path | File |
-|---|---|---|
-| Auth/users | `/api/v1` (`/register`, `/login`, `/all`, `/user/:id`, ...) | `routes/users.js` → `controllers/users.js` |
-| Products | `/api/v1` (`/add-product`, `/all-products`, `/products/:id`, `/product/update/:id`, `/product/delete/:id`) | `routes/products.js` → `controllers/ProductsCon.js` |
-| Categories | `/api/v1` (`/add-category`, `/all-categories`, ...) | `routes/category.js` → `controllers/category.js` |
-| Orders | `/api/v1/orders/*` | `routes/orders.js` → `controllers/orders.js` |
-| Customers | `/api/v1/customers/*` | `routes/customers.js` → `controllers/customers.js` |
-| Suppliers | `/api/v1/suppliers/*` | `routes/suppliers.js` → `controllers/suppliers.js` |
-| Stock movements | `/api/v1/stock-movements/*` | `routes/stockMovements.js` → `controllers/stockMovements.js` |
-| AI chat (streaming) | `POST /api/chat` | `routes/chat.js` (no separate controller — logic lives in the route file) |
-| Posts (legacy, mostly commented out) | `/api/...` | `routes/posts.js` → `controllers/posts.js` |
+| Resource                             | Base path                                                                                                  | File                                                                      |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Auth/users                           | `/api/v1` (`/register`, `/login`, `/all`, `/user/:id`, ...)                                                | `routes/users.js` → `controllers/users.js`                                |
+| Products                             | `/api/v1` (`/add-product`, `/all-products`, `/products/:id`, `/product/update/:id`, `/product/delete/:id`) | `routes/products.js` → `controllers/ProductsCon.js`                       |
+| Categories                           | `/api/v1` (`/add-category`, `/all-categories`, ...)                                                        | `routes/category.js` → `controllers/category.js`                          |
+| Orders                               | `/api/v1/orders/*`                                                                                         | `routes/orders.js` → `controllers/orders.js`                              |
+| Customers                            | `/api/v1/customers/*`                                                                                      | `routes/customers.js` → `controllers/customers.js`                        |
+| Suppliers                            | `/api/v1/suppliers/*`                                                                                      | `routes/suppliers.js` → `controllers/suppliers.js`                        |
+| Stock movements                      | `/api/v1/stock-movements/*`                                                                                | `routes/stockMovements.js` → `controllers/stockMovements.js`              |
+| AI chat (streaming)                  | `POST /api/chat`                                                                                           | `routes/chat.js` (no separate controller — logic lives in the route file) |
+| Posts (legacy, mostly commented out) | `/api/...`                                                                                                 | `routes/posts.js` → `controllers/posts.js`                                |
 
 Route naming is inconsistent across resources (`/all-products` vs
 `/orders/all` vs `/all-categories`) — this is pre-existing, not a bug to
@@ -123,8 +125,8 @@ model.
    per route, comment above each (`// GET ALL X` style, matches existing
    files).
 2. Controller: `async (req, res, next) => { try { ... } catch (err) {
-   next(new AppError(err.message || "Failed to ...", err.status || 500)); }
-   }`.
+next(new AppError(err.message || "Failed to ...", err.status || 500)); }
+}`.
 3. Success responses are `{ success: true, ...data }`; list endpoints
    include `total`/`page`/`limit`/`totalPages` (or `pages`) for pagination —
    match the shape of sibling endpoints for the same resource so the

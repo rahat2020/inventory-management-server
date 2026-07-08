@@ -4,6 +4,7 @@ const {
   getAllOrders,
   getOrderById,
   getOrderStats,
+  getSalesTrend,
   createOrder,
 } = require("../controllers/orders");
 
@@ -12,6 +13,9 @@ router.get("/orders/all", getAllOrders);
 
 // GET order stats
 router.get("/orders/stats/summary", getOrderStats);
+
+// GET sales trend (for dashboard chart)
+router.get("/orders/stats/trend", getSalesTrend);
 
 // GET order by ID
 router.get("/orders/:orderId", getOrderById);
