@@ -6,6 +6,7 @@ const {
   getOrderStats,
   getSalesTrend,
   createOrder,
+  updateOrderStatus,
 } = require("../controllers/orders");
 
 // GET all orders
@@ -22,5 +23,8 @@ router.get("/orders/:orderId", getOrderById);
 
 // CREATE new order
 router.post("/orders/create", createOrder);
+
+// UPDATE order status / payment status
+router.patch("/orders/:orderId/status", updateOrderStatus);
 
 module.exports = router;

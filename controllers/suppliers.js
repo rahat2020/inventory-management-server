@@ -3,12 +3,20 @@ const Supplier = require("../models/Supplier");
 // GET ALL SUPPLIERS
 const getAllSuppliers = async (req, res, next) => {
   try {
-    const { status, limit = 50, page = 1 } = req.query;
+    const { status, search, limit = 50, page = 1 } = req.query;
     const skip = (page - 1) * limit;
 
-    const query = status ? { status } : {};
+    const query = {};
+    if (status) query.status = status;
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+      ];
+    }
     const suppliers = await Supplier.find(query)
-      .select("name email phone totalOrders rating status createdAt")
+      .select("name email phone contactPerson totalOrders totalPurchased rating status createdAt")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit))
@@ -102,9 +110,81 @@ const createSupplier = async (req, res, next) => {
   }
 };
 
+// UPDATE SUPPLIER
+const updateSupplier = async (req, res, next) => {
+  try {
+    const { supplierId } = req.params;
+    const {
+      name,
+      email,
+      phone,
+      contactPerson,
+      address,
+      paymentTerms,
+      rating,
+      status,
+      notes,
+    } = req.body;
+
+    const updatedSupplier = await Supplier.findByIdAndUpdate(
+      supplierId,
+      {
+        $set: {
+          name,
+          email,
+          phone,
+          contactPerson,
+          address,
+          paymentTerms,
+          rating,
+          status,
+          notes,
+        },
+      },
+      { new: true, runValidators: true },
+    );
+
+    if (!updatedSupplier) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Supplier not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Supplier updated successfully",
+      supplier: updatedSupplier,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE SUPPLIER
+const deleteSupplier = async (req, res, next) => {
+  try {
+    const { supplierId } = req.params;
+    const deletedSupplier = await Supplier.findByIdAndDelete(supplierId);
+
+    if (!deletedSupplier) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Supplier not found" });
+    }
+
+    res
+      .status(200)
+      .json({ success: true, message: "Supplier deleted successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllSuppliers,
   getSupplierById,
   getSupplierStats,
   createSupplier,
+  updateSupplier,
+  deleteSupplier,
 };

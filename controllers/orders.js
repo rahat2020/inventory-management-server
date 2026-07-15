@@ -4,13 +4,23 @@ const Products = require("../models/Products");
 // GET ALL ORDERS
 const getAllOrders = async (req, res, next) => {
   try {
-    const { status, limit = 50, page = 1 } = req.query;
+    const { status, paymentStatus, search, limit = 50, page = 1 } = req.query;
     const skip = (page - 1) * limit;
 
-    const query = status ? { status } : {};
+    const query = {};
+    if (status) query.status = status;
+    if (paymentStatus) query.paymentStatus = paymentStatus;
+    if (search) {
+      query.$or = [
+        { orderNumber: { $regex: search, $options: "i" } },
+        { customerName: { $regex: search, $options: "i" } },
+        { customerEmail: { $regex: search, $options: "i" } },
+      ];
+    }
+
     const orders = await Orders.find(query)
       .select(
-        "orderNumber customerName totalAmount status paymentStatus createdAt",
+        "orderNumber customerName customerEmail totalAmount totalItems status paymentStatus createdAt",
       )
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -26,6 +36,67 @@ const getAllOrders = async (req, res, next) => {
       page: Number(page),
       limit: Number(limit),
       pages: Math.ceil(total / limit),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// UPDATE ORDER STATUS (and optionally paymentStatus alongside it)
+const updateOrderStatus = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const { status, paymentStatus } = req.body;
+
+    const validStatuses = [
+      "pending",
+      "confirmed",
+      "processing",
+      "shipped",
+      "delivered",
+      "cancelled",
+    ];
+    const validPaymentStatuses = ["unpaid", "partial", "paid"];
+
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
+      });
+    }
+    if (paymentStatus && !validPaymentStatuses.includes(paymentStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid paymentStatus. Must be one of: ${validPaymentStatuses.join(", ")}`,
+      });
+    }
+    if (!status && !paymentStatus) {
+      return res.status(400).json({
+        success: false,
+        message: "status or paymentStatus is required",
+      });
+    }
+
+    const update = {};
+    if (status) update.status = status;
+    if (paymentStatus) update.paymentStatus = paymentStatus;
+
+    const order = await Orders.findByIdAndUpdate(
+      orderId,
+      { $set: update },
+      { new: true, runValidators: true },
+    );
+
+    if (!order) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Order updated successfully",
+      order,
     });
   } catch (error) {
     next(error);
@@ -63,9 +134,15 @@ const getOrderStats = async (req, res, next) => {
     const confirmedOrders = await Orders.countDocuments({
       status: "confirmed",
     });
+    const processingOrders = await Orders.countDocuments({
+      status: "processing",
+    });
     const shippedOrders = await Orders.countDocuments({ status: "shipped" });
     const deliveredOrders = await Orders.countDocuments({
       status: "delivered",
+    });
+    const cancelledOrders = await Orders.countDocuments({
+      status: "cancelled",
     });
 
     const stats = await Orders.aggregate([
@@ -119,8 +196,10 @@ const getOrderStats = async (req, res, next) => {
       totalOrders,
       pendingOrders,
       confirmedOrders,
+      processingOrders,
       shippedOrders,
       deliveredOrders,
+      cancelledOrders,
       ordersToday,
       totalAmount: stats[0]?.totalAmount || 0,
       averageOrderValue: stats[0]?.averageOrderValue || 0,
@@ -273,4 +352,5 @@ module.exports = {
   getOrderStats,
   getSalesTrend,
   createOrder,
+  updateOrderStatus,
 };

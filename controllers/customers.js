@@ -3,12 +3,21 @@ const Customer = require("../models/Customer");
 // GET ALL CUSTOMERS
 const getAllCustomers = async (req, res, next) => {
   try {
-    const { status, limit = 50, page = 1 } = req.query;
+    const { status, search, limit = 50, page = 1 } = req.query;
     const skip = (page - 1) * limit;
 
-    const query = status ? { status } : {};
+    const query = {};
+    if (status) query.status = status;
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+        { companyName: { $regex: search, $options: "i" } },
+      ];
+    }
     const customers = await Customer.find(query)
-      .select("name email phone totalOrders totalSpent status createdAt")
+      .select("name email phone companyName totalOrders totalSpent status createdAt")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit))
@@ -99,9 +108,81 @@ const createCustomer = async (req, res, next) => {
   }
 };
 
+// UPDATE CUSTOMER
+const updateCustomer = async (req, res, next) => {
+  try {
+    const { customerId } = req.params;
+    const {
+      name,
+      email,
+      phone,
+      companyName,
+      address,
+      billingAddress,
+      creditLimit,
+      status,
+      notes,
+    } = req.body;
+
+    const updatedCustomer = await Customer.findByIdAndUpdate(
+      customerId,
+      {
+        $set: {
+          name,
+          email,
+          phone,
+          companyName,
+          address,
+          billingAddress,
+          creditLimit,
+          status,
+          notes,
+        },
+      },
+      { new: true, runValidators: true },
+    );
+
+    if (!updatedCustomer) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Customer not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Customer updated successfully",
+      customer: updatedCustomer,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE CUSTOMER
+const deleteCustomer = async (req, res, next) => {
+  try {
+    const { customerId } = req.params;
+    const deletedCustomer = await Customer.findByIdAndDelete(customerId);
+
+    if (!deletedCustomer) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Customer not found" });
+    }
+
+    res
+      .status(200)
+      .json({ success: true, message: "Customer deleted successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllCustomers,
   getCustomerById,
   getCustomerStats,
   createCustomer,
+  updateCustomer,
+  deleteCustomer,
 };

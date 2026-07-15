@@ -5,6 +5,8 @@ const {
   getSupplierById,
   getSupplierStats,
   createSupplier,
+  updateSupplier,
+  deleteSupplier,
 } = require("../controllers/suppliers");
 
 // GET all suppliers
@@ -18,5 +20,11 @@ router.get("/suppliers/:supplierId", getSupplierById);
 
 // CREATE new supplier
 router.post("/suppliers/create", createSupplier);
+
+// UPDATE supplier
+router.put("/suppliers/update/:supplierId", updateSupplier);
+
+// DELETE supplier
+router.delete("/suppliers/delete/:supplierId", deleteSupplier);
 
 module.exports = router;
