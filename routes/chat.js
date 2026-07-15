@@ -1,6 +1,4 @@
 const express = require("express");
-const { streamText, tool, convertToModelMessages, isStepCount } = require("ai");
-const { createGoogle } = require("@ai-sdk/google");
 const { z } = require("zod");
 const Products = require("../models/Products");
 const Category = require("../models/Category");
@@ -249,6 +247,10 @@ const buildDemoProducts = (createdBy) =>
 
 router.post("/chat", async (req, res) => {
   try {
+    const { streamText, tool, convertToModelMessages, isStepCount } =
+      await import("ai");
+    const { createGoogle } = await import("@ai-sdk/google");
+
     const apiKey = normalizeEnvValue(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
 
     if (!apiKey) {
@@ -949,7 +951,7 @@ Always be helpful and suggest relevant data when appropriate.`,
                 ]);
 
                 report.suppliers = {
-                  totalActiveSuppliers,
+                  totalActiveSuppliers: totalSuppliers,
                   totalPurchased: supplierStats[0]?.totalPurchased || 0,
                   averageRating: (supplierStats[0]?.averageRating || 0).toFixed(
                     2,
